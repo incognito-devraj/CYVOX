@@ -1,6 +1,7 @@
 package com.cyvox.app;
 
 import com.cyvox.config.AppConfig;
+import com.cyvox.controller.DashboardController;
 import com.cyvox.util.ResourceResolver;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
@@ -26,11 +27,13 @@ public final class CyvoxApplication extends Application {
         FXMLLoader loader = new FXMLLoader(ResourceResolver.requireResource("fxml/dashboard-view.fxml"));
         Scene scene = new Scene(loader.load(), 1280, 800);
         scene.getStylesheets().add(ResourceResolver.requireResource("css/application.css").toExternalForm());
+        DashboardController dashboardController = loader.getController();
 
         stage.setTitle(AppConfig.applicationName());
         stage.setMinWidth(1100);
         stage.setMinHeight(720);
         stage.setScene(scene);
+        stage.setOnCloseRequest(event -> dashboardController.shutdown());
         stage.show();
 
         LOGGER.info("Primary stage displayed");

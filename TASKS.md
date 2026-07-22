@@ -3,7 +3,7 @@
 - [x] Environment setup
 - [x] Maven + JavaFX
 - [x] UI
-- [ ] Recursive scanner
+- [x] Recursive scanner
 - [ ] FFprobe integration
 - [ ] Compression engine
 - [ ] Batch queue
