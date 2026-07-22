@@ -5,7 +5,7 @@
 - [x] UI
 - [x] Recursive scanner
 - [x] FFprobe integration
-- [ ] Compression engine
+- [x] Compression engine
 - [ ] Batch queue
 - [ ] Pause / Resume / Cancel
 - [ ] Reports

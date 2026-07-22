@@ -1,12 +1,20 @@
 package com.cyvox.controller;
 
+import com.cyvox.exception.FfmpegException;
 import com.cyvox.exception.FfprobeException;
+import com.cyvox.model.CompressionPreset;
+import com.cyvox.model.CompressionRequest;
+import com.cyvox.model.CompressionResult;
+import com.cyvox.model.CompressionStatus;
 import com.cyvox.model.ScanResult;
 import com.cyvox.model.VideoFile;
+import com.cyvox.service.FfmpegResolver;
 import com.cyvox.service.FfprobeResolver;
+import com.cyvox.service.VideoCompressionService;
 import com.cyvox.service.VideoAnalysisService;
 import com.cyvox.service.VideoScannerService;
 import com.cyvox.task.VideoAnalysisTask;
+import com.cyvox.task.VideoCompressionTask;
 import com.cyvox.task.VideoScanTask;
 import com.cyvox.util.FileSizeFormatter;
 import javafx.fxml.FXML;
@@ -25,7 +33,10 @@ import javafx.stage.Window;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -45,6 +56,7 @@ public final class DashboardController {
 
     private final VideoScannerService videoScannerService = new VideoScannerService();
     private final VideoAnalysisService videoAnalysisService = new VideoAnalysisService(new FfprobeResolver());
+    private final VideoCompressionService videoCompressionService = new VideoCompressionService(new FfmpegResolver());
     private final ExecutorService scanExecutor = Executors.newSingleThreadExecutor(runnable -> {
         Thread worker = new Thread(runnable, "cyvox-scan-worker");
         worker.setDaemon(true);
@@ -52,8 +64,11 @@ public final class DashboardController {
     });
 
     private Path selectedInputFolder;
+    private Path selectedOutputFolder;
     private VideoScanTask activeScanTask;
     private VideoAnalysisTask activeAnalysisTask;
+    private VideoCompressionTask activeCompressionTask;
+    private List<VideoFile> analyzedVideos = new ArrayList<>();
 
     @FXML
     private Label inputFolderValue;
@@ -182,7 +197,7 @@ public final class DashboardController {
         updateOutputPatternPreview();
         refreshOptionSummary();
         updateOutputReadiness();
-        updateScanControls(false);
+        updateActionControls();
         statusValue.setText("Ready for workspace setup");
         workspaceStatusValue.setText("Dashboard online");
         queueStateLabel.setText("Onboarding checklist loaded");
@@ -204,7 +219,7 @@ public final class DashboardController {
             statusValue.setText("Input folder selected");
             workspaceStatusValue.setText("Input configured");
             appendLog("input", "Input folder set to " + selectedPath);
-            updateScanControls(true);
+            updateActionControls();
         }
     }
 
@@ -212,11 +227,13 @@ public final class DashboardController {
     private void chooseOutputFolder() {
         Path selectedPath = chooseDirectory("Select Output Folder");
         if (selectedPath != null) {
+            selectedOutputFolder = selectedPath;
             outputFolderValue.setText(selectedPath.toString());
             statusValue.setText("Output folder selected");
             workspaceStatusValue.setText("Output configured");
             appendLog("output", "Output folder set to " + selectedPath);
             updateOutputReadiness();
+            updateActionControls();
         }
     }
 
@@ -255,7 +272,61 @@ public final class DashboardController {
 
     @FXML
     private void handleCompressionRequested() {
-        appendLog("compress", "Compression is not available until the engine milestones are complete.");
+        if (activeCompressionTask != null && activeCompressionTask.isRunning()) {
+            appendLog("compress", "A compression task is already in progress.");
+            return;
+        }
+        if (selectedOutputFolder == null) {
+            statusValue.setText("Select an output folder first");
+            appendLog("compress", "Compression request ignored because no output folder is selected.");
+            return;
+        }
+        if (analyzedVideos.isEmpty()) {
+            statusValue.setText("Scan and analyze videos first");
+            appendLog("compress", "Compression request ignored because there are no analyzed videos.");
+            return;
+        }
+
+        int selectedIndex = queueListView.getSelectionModel().getSelectedIndex();
+        VideoFile selectedVideo = selectedIndex >= 0 && selectedIndex < analyzedVideos.size()
+                ? analyzedVideos.get(selectedIndex)
+                : analyzedVideos.getFirst();
+
+        CompressionRequest compressionRequest = new CompressionRequest(
+                selectedVideo,
+                selectedOutputFolder,
+                CompressionPreset.fromDisplayName(presetComboBox.getValue()),
+                filenamePatternField.getText().trim(),
+                overwriteExistingCheckBox.isSelected(),
+                skipExistingCheckBox.isSelected(),
+                keepMetadataCheckBox.isSelected()
+        );
+
+        try {
+            activeCompressionTask = new VideoCompressionTask(videoCompressionService, compressionRequest);
+        } catch (FfmpegException exception) {
+            handleFfmpegUnavailable(exception);
+            return;
+        }
+
+        compressionProgressBar.progressProperty().unbind();
+        compressionProgressBar.progressProperty().bind(activeCompressionTask.progressProperty());
+        statusValue.textProperty().unbind();
+        statusValue.textProperty().bind(activeCompressionTask.messageProperty());
+        currentFileValue.textProperty().unbind();
+        currentFileValue.setText(selectedVideo.fileName());
+        workspaceStatusValue.setText("Compressing video");
+        queueStateLabel.setText("Encoding " + selectedVideo.fileName());
+        compressionSpeedValue.setText("Encoding");
+        elapsedTimeValue.setText("In progress");
+        remainingTimeValue.setText("Estimating");
+        appendLog("compress", "Starting single-file compression for " + selectedVideo.fileName() + ".");
+        updateActionControls();
+
+        activeCompressionTask.setOnSucceeded(event -> handleCompressionSucceeded(selectedVideo, activeCompressionTask.getValue()));
+        activeCompressionTask.setOnFailed(event -> handleCompressionFailed(activeCompressionTask.getException()));
+        activeCompressionTask.setOnCancelled(event -> handleCompressionCancelled());
+        scanExecutor.submit(activeCompressionTask);
     }
 
     @FXML
@@ -341,6 +412,9 @@ public final class DashboardController {
         if (activeAnalysisTask != null && activeAnalysisTask.isRunning()) {
             activeAnalysisTask.cancel();
         }
+        if (activeCompressionTask != null && activeCompressionTask.isRunning()) {
+            activeCompressionTask.cancel();
+        }
         scanExecutor.shutdownNow();
     }
 
@@ -363,16 +437,17 @@ public final class DashboardController {
                 .map(this::describeVideo)
                 .toList());
         if (scanResult.videos().isEmpty()) {
+            analyzedVideos = List.of();
             queueListView.getItems().setAll("No supported video files were found in the selected folder.");
             compressionSpeedValue.setText("No videos found");
             estimatedSavingsValue.setText("N/A");
             reportTargetsLabel.setText("Nothing to analyze in the selected folder.");
             activeScanTask = null;
+            updateActionControls();
             return;
         }
 
-        updateScanControls(selectedInputFolder != null);
-        compressButton.setDisable(true);
+        updateActionControls();
         appendLog("scan", "Scan complete: found " + scanResult.statistics().videoCount()
                 + " supported videos totaling " + FileSizeFormatter.format(scanResult.statistics().totalSizeBytes()) + ".");
         activeScanTask = null;
@@ -388,8 +463,8 @@ public final class DashboardController {
         queueStateLabel.setText("Scan failed");
         workspaceStatusValue.setText("Scan failed");
         statusValue.setText("Scan failed");
-        updateScanControls(selectedInputFolder != null);
-        compressButton.setDisable(true);
+        analyzedVideos = List.of();
+        updateActionControls();
         appendLog("scan", "Scan failed: " + Objects.requireNonNullElse(throwable.getMessage(), throwable.getClass().getSimpleName()));
         activeScanTask = null;
     }
@@ -403,8 +478,8 @@ public final class DashboardController {
         queueStateLabel.setText("Scan cancelled");
         workspaceStatusValue.setText("Scan cancelled");
         statusValue.setText("Scan cancelled");
-        updateScanControls(selectedInputFolder != null);
-        compressButton.setDisable(true);
+        analyzedVideos = List.of();
+        updateActionControls();
         appendLog("scan", "Scan cancelled.");
         activeScanTask = null;
     }
@@ -449,21 +524,22 @@ public final class DashboardController {
         scanExecutor.submit(activeAnalysisTask);
     }
 
-    private void handleAnalysisSucceeded(List<VideoFile> analyzedVideos) {
+    private void handleAnalysisSucceeded(List<VideoFile> analyzedVideoResults) {
         compressionProgressBar.progressProperty().unbind();
         statusValue.textProperty().unbind();
         currentFileValue.textProperty().unbind();
         statusValue.setText("Analysis complete");
         currentFileValue.setText("No active file");
-        queueStateLabel.setText(analyzedVideos.size() + " videos analyzed");
+        queueStateLabel.setText(analyzedVideoResults.size() + " videos analyzed");
         workspaceStatusValue.setText("Metadata ready");
         compressionSpeedValue.setText("Analysis complete");
         estimatedSavingsValue.setText("Estimator next");
         reportTargetsLabel.setText("Duration, resolution, codec, bitrate, frame rate, and audio codec are now available.");
+        analyzedVideos = List.copyOf(analyzedVideoResults);
         queueListView.getItems().setAll(analyzedVideos.stream().map(this::describeVideo).toList());
         appendLog("analysis", "FFprobe analysis complete for " + analyzedVideos.size() + " videos.");
         activeAnalysisTask = null;
-        updateScanControls(selectedInputFolder != null);
+        updateActionControls();
     }
 
     private void handleAnalysisFailed(Throwable throwable) {
@@ -476,9 +552,10 @@ public final class DashboardController {
         queueStateLabel.setText("Scan complete, analysis failed");
         workspaceStatusValue.setText("Analysis failed");
         statusValue.setText("Analysis failed");
+        analyzedVideos = Collections.emptyList();
         appendLog("analysis", "FFprobe analysis failed: " + Objects.requireNonNullElse(throwable.getMessage(), throwable.getClass().getSimpleName()));
         activeAnalysisTask = null;
-        updateScanControls(selectedInputFolder != null);
+        updateActionControls();
     }
 
     private void handleAnalysisCancelled() {
@@ -490,9 +567,10 @@ public final class DashboardController {
         workspaceStatusValue.setText("Analysis cancelled");
         statusValue.setText("Analysis cancelled");
         compressionSpeedValue.setText("Analysis cancelled");
+        analyzedVideos = Collections.emptyList();
         appendLog("analysis", "FFprobe analysis cancelled.");
         activeAnalysisTask = null;
-        updateScanControls(selectedInputFolder != null);
+        updateActionControls();
     }
 
     private void handleFfprobeUnavailable(FfprobeException exception) {
@@ -506,8 +584,79 @@ public final class DashboardController {
         compressionSpeedValue.setText("Analysis unavailable");
         estimatedSavingsValue.setText("Pending");
         reportTargetsLabel.setText("Bundle ffprobe.exe in the ffmpeg folder to enable metadata extraction.");
+        analyzedVideos = Collections.emptyList();
         appendLog("analysis", exception.getMessage());
-        updateScanControls(selectedInputFolder != null);
+        updateActionControls();
+    }
+
+    private void handleCompressionSucceeded(VideoFile selectedVideo, CompressionResult compressionResult) {
+        compressionProgressBar.progressProperty().unbind();
+        statusValue.textProperty().unbind();
+        currentFileValue.textProperty().unbind();
+        statusValue.setText(compressionResult.message());
+        workspaceStatusValue.setText("Compression complete");
+        queueStateLabel.setText("Single-file compression complete");
+        currentFileValue.setText(selectedVideo.fileName());
+        compressionSpeedValue.setText(compressionResult.status() == CompressionStatus.SKIPPED ? "Skipped" : "Completed");
+        elapsedTimeValue.setText(formatDuration(compressionResult.elapsedTime()));
+        remainingTimeValue.setText("00:00:00");
+        if (compressionResult.status() == CompressionStatus.COMPLETED) {
+            estimatedSavingsValue.setText("%.0f%%".formatted(compressionResult.savingsRatio() * 100));
+        }
+        reportTargetsLabel.setText("Last output: " + compressionResult.outputFile().getFileName());
+        appendLog("compress", compressionResult.message() + " Output: " + compressionResult.outputFile());
+        activeCompressionTask = null;
+        updateActionControls();
+    }
+
+    private void handleCompressionFailed(Throwable throwable) {
+        compressionProgressBar.progressProperty().unbind();
+        statusValue.textProperty().unbind();
+        currentFileValue.textProperty().unbind();
+        statusValue.setText("Compression failed");
+        workspaceStatusValue.setText("Compression failed");
+        queueStateLabel.setText("Compression failed");
+        currentFileValue.setText("No active file");
+        compressionSpeedValue.setText("Compression failed");
+        remainingTimeValue.setText("--:--:--");
+        appendLog("compress", "Compression failed: " + Objects.requireNonNullElse(throwable.getMessage(), throwable.getClass().getSimpleName()));
+        activeCompressionTask = null;
+        updateActionControls();
+    }
+
+    private void handleCompressionCancelled() {
+        compressionProgressBar.progressProperty().unbind();
+        statusValue.textProperty().unbind();
+        currentFileValue.textProperty().unbind();
+        statusValue.setText("Compression cancelled");
+        workspaceStatusValue.setText("Compression cancelled");
+        queueStateLabel.setText("Compression cancelled");
+        currentFileValue.setText("No active file");
+        compressionSpeedValue.setText("Compression cancelled");
+        appendLog("compress", "Compression cancelled.");
+        activeCompressionTask = null;
+        updateActionControls();
+    }
+
+    private void handleFfmpegUnavailable(FfmpegException exception) {
+        statusValue.textProperty().unbind();
+        currentFileValue.textProperty().unbind();
+        statusValue.setText("ffmpeg unavailable");
+        workspaceStatusValue.setText("Waiting for ffmpeg");
+        queueStateLabel.setText("Compression unavailable");
+        currentFileValue.setText("No active file");
+        compressionSpeedValue.setText("Compression unavailable");
+        appendLog("compress", exception.getMessage());
+        updateActionControls();
+    }
+
+    private void updateActionControls() {
+        boolean busy = (activeScanTask != null && activeScanTask.isRunning())
+                || (activeAnalysisTask != null && activeAnalysisTask.isRunning())
+                || (activeCompressionTask != null && activeCompressionTask.isRunning());
+        scanButton.setDisable(selectedInputFolder == null || busy);
+        boolean compressionReady = selectedOutputFolder != null && !analyzedVideos.isEmpty() && !busy;
+        compressButton.setDisable(!compressionReady);
     }
 
     private String formatSeconds(double seconds) {
@@ -516,6 +665,14 @@ public final class DashboardController {
         long minutes = (roundedSeconds % 3600) / 60;
         long remainingSeconds = roundedSeconds % 60;
         return "%02d:%02d:%02d".formatted(hours, minutes, remainingSeconds);
+    }
+
+    private String formatDuration(Duration duration) {
+        long totalSeconds = duration.getSeconds();
+        long hours = totalSeconds / 3600;
+        long minutes = (totalSeconds % 3600) / 60;
+        long seconds = totalSeconds % 60;
+        return "%02d:%02d:%02d".formatted(hours, minutes, seconds);
     }
 
     private String yesNo(boolean selected) {
