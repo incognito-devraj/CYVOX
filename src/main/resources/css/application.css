@@ -1,0 +1,122 @@
+.root {
+    -fx-font-family: "Segoe UI";
+    -fx-background-color: linear-gradient(to bottom right, #0f1720, #172436 55%, #1e2f45);
+    -fx-text-fill: #edf2f7;
+}
+
+.app-shell {
+    -fx-background-color: transparent;
+}
+
+.eyebrow {
+    -fx-text-fill: #89a7c2;
+    -fx-font-size: 12px;
+    -fx-font-weight: 700;
+    -fx-letter-spacing: 1.2px;
+}
+
+.app-title {
+    -fx-text-fill: #f8fafc;
+    -fx-font-size: 34px;
+    -fx-font-weight: 800;
+}
+
+.subhead {
+    -fx-text-fill: #b8c6d8;
+    -fx-font-size: 14px;
+    -fx-max-width: 520px;
+}
+
+.panel {
+    -fx-background-color: rgba(12, 18, 26, 0.74);
+    -fx-background-radius: 22px;
+    -fx-border-color: rgba(151, 179, 203, 0.16);
+    -fx-border-radius: 22px;
+    -fx-padding: 18px;
+}
+
+.panel-wide {
+    -fx-min-height: 150px;
+}
+
+.panel-narrow {
+    -fx-min-width: 220px;
+}
+
+.side-panel {
+    -fx-min-width: 280px;
+}
+
+.section-title,
+.status-label,
+.metric-label,
+.status-strip-label {
+    -fx-text-fill: #8da8c2;
+    -fx-font-size: 12px;
+    -fx-font-weight: 700;
+}
+
+.path-value,
+.status-value,
+.status-strip-value {
+    -fx-text-fill: #f8fafc;
+    -fx-font-size: 14px;
+}
+
+.metric-value {
+    -fx-text-fill: #f8fafc;
+    -fx-font-size: 28px;
+    -fx-font-weight: 800;
+}
+
+.button {
+    -fx-cursor: hand;
+    -fx-background-radius: 14px;
+    -fx-padding: 10px 16px;
+    -fx-font-size: 13px;
+    -fx-font-weight: 700;
+}
+
+.primary-button {
+    -fx-background-color: #f59e0b;
+    -fx-text-fill: #0f1720;
+}
+
+.secondary-button {
+    -fx-background-color: #223349;
+    -fx-text-fill: #edf2f7;
+}
+
+.danger-button {
+    -fx-background-color: #7f1d1d;
+    -fx-text-fill: #fee2e2;
+}
+
+.combo-box,
+.combo-box .list-cell {
+    -fx-background-radius: 14px;
+    -fx-background-color: #122033;
+    -fx-text-fill: #edf2f7;
+}
+
+.progress-bar {
+    -fx-accent: #f59e0b;
+}
+
+.placeholder-surface {
+    -fx-background-color: rgba(19, 30, 45, 0.92);
+    -fx-background-radius: 18px;
+    -fx-border-color: rgba(151, 179, 203, 0.12);
+    -fx-border-radius: 18px;
+    -fx-padding: 20px;
+}
+
+.placeholder-copy,
+.helper-copy {
+    -fx-text-fill: #aebfd3;
+    -fx-font-size: 13px;
+}
+
+.status-strip {
+    -fx-padding: 14px 4px 0 4px;
+}

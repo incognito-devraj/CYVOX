@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ProgressBar?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Priority?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane prefHeight="800.0" prefWidth="1280.0" styleClass="app-shell" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.cyvox.controller.DashboardController">
+    <padding>
+        <Insets bottom="24.0" left="24.0" right="24.0" top="24.0" />
+    </padding>
+    <top>
+        <VBox spacing="16.0">
+            <HBox alignment="CENTER_LEFT" spacing="18.0">
+                <VBox spacing="6.0">
+                    <Label styleClass="eyebrow" text="Intelligent Batch Video Compression" />
+                    <Label styleClass="app-title" text="CYVOX" />
+                    <Label styleClass="subhead" text="Compress smarter and reclaim storage without leaving your desktop." wrapText="true" />
+                </VBox>
+                <Region HBox.hgrow="ALWAYS" />
+                <VBox alignment="CENTER_RIGHT" spacing="6.0">
+                    <Label styleClass="status-label" text="Status" />
+                    <Label fx:id="statusValue" styleClass="status-value" text="Bootstrapping workspace" />
+                </VBox>
+            </HBox>
+
+            <HBox spacing="16.0">
+                <VBox spacing="8.0" styleClass="panel panel-wide" HBox.hgrow="ALWAYS">
+                    <Label styleClass="section-title" text="Input Folder" />
+                    <Label fx:id="inputFolderValue" styleClass="path-value" text="No folder selected" wrapText="true" />
+                    <Button mnemonicParsing="false" onAction="#chooseInputFolder" styleClass="secondary-button" text="Browse Input" />
+                </VBox>
+                <VBox spacing="8.0" styleClass="panel panel-wide" HBox.hgrow="ALWAYS">
+                    <Label styleClass="section-title" text="Output Folder" />
+                    <Label fx:id="outputFolderValue" styleClass="path-value" text="No folder selected" wrapText="true" />
+                    <Button mnemonicParsing="false" onAction="#chooseOutputFolder" styleClass="secondary-button" text="Browse Output" />
+                </VBox>
+                <VBox spacing="10.0" styleClass="panel panel-narrow">
+                    <Label styleClass="section-title" text="Preset" />
+                    <ComboBox fx:id="presetComboBox" maxWidth="1.7976931348623157E308" />
+                    <Button disable="true" mnemonicParsing="false" styleClass="primary-button" text="Scan Library" />
+                </VBox>
+            </HBox>
+        </VBox>
+    </top>
+    <center>
+        <VBox spacing="16.0">
+            <HBox spacing="16.0">
+                <VBox spacing="8.0" styleClass="panel stat-card" HBox.hgrow="ALWAYS">
+                    <Label styleClass="metric-label" text="Videos Found" />
+                    <Label styleClass="metric-value" text="0" />
+                </VBox>
+                <VBox spacing="8.0" styleClass="panel stat-card" HBox.hgrow="ALWAYS">
+                    <Label styleClass="metric-label" text="Original Size" />
+                    <Label styleClass="metric-value" text="0 B" />
+                </VBox>
+                <VBox spacing="8.0" styleClass="panel stat-card" HBox.hgrow="ALWAYS">
+                    <Label styleClass="metric-label" text="Estimated Savings" />
+                    <Label styleClass="metric-value" text="0%" />
+                </VBox>
+                <VBox spacing="8.0" styleClass="panel stat-card" HBox.hgrow="ALWAYS">
+                    <Label styleClass="metric-label" text="Compression Speed" />
+                    <Label styleClass="metric-value" text="Idle" />
+                </VBox>
+            </HBox>
+
+            <HBox spacing="16.0" VBox.vgrow="ALWAYS">
+                <VBox spacing="14.0" styleClass="panel" HBox.hgrow="ALWAYS">
+                    <Label styleClass="section-title" text="Queue Preview" />
+                    <StackPane VBox.vgrow="ALWAYS" styleClass="placeholder-surface">
+                        <Label styleClass="placeholder-copy" text="Video discovery and metadata analysis will appear here in the next milestone." wrapText="true" />
+                    </StackPane>
+                </VBox>
+                <VBox spacing="14.0" styleClass="panel side-panel">
+                    <Label styleClass="section-title" text="Session Controls" />
+                    <Button disable="true" maxWidth="1.7976931348623157E308" mnemonicParsing="false" styleClass="primary-button" text="Compress" />
+                    <Button disable="true" maxWidth="1.7976931348623157E308" mnemonicParsing="false" styleClass="secondary-button" text="Pause" />
+                    <Button disable="true" maxWidth="1.7976931348623157E308" mnemonicParsing="false" styleClass="secondary-button" text="Resume" />
+                    <Button disable="true" maxWidth="1.7976931348623157E308" mnemonicParsing="false" styleClass="danger-button" text="Cancel" />
+                    <Region VBox.vgrow="ALWAYS" />
+                    <Label styleClass="status-label" text="Progress" />
+                    <ProgressBar prefWidth="240.0" progress="0.0" />
+                    <Label styleClass="helper-copy" text="Compression controls unlock when scanning and analysis are implemented." wrapText="true" />
+                </VBox>
+            </HBox>
+        </VBox>
+    </center>
+    <bottom>
+        <HBox alignment="CENTER_LEFT" spacing="12.0" styleClass="status-strip">
+            <Label styleClass="status-strip-label" text="Workspace" />
+            <Label styleClass="status-strip-value" text="Ready" />
+        </HBox>
+    </bottom>
+</BorderPane>

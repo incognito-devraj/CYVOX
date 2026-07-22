@@ -1,0 +1,16 @@
+.bootstrap/
+.mvn/wrapper/maven-wrapper.jar
+target/
+*.log
+
+# Runtime output
+logs/
+reports/
+temp/
+
+# OS / IDE
+.idea/
+.vscode/
+*.iml
+Thumbs.db
+Desktop.ini
