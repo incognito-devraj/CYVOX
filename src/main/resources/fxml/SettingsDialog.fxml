@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Spinner?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<StackPane id="settingsOverlay" managed="false" styleClass="settings-overlay" visible="false" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1">
+    <VBox maxWidth="520.0" spacing="20.0" styleClass="settings-card">
+        <padding>
+            <Insets bottom="28.0" left="28.0" right="28.0" top="28.0" />
+        </padding>
+        <Label styleClass="settings-title" text="Advanced Settings" />
+        <Label styleClass="settings-subtitle" text="Keep the defaults unless you need stricter file handling." wrapText="true" />
+        <GridPane hgap="18.0" vgap="14.0">
+            <Label styleClass="field-caption" text="Filename Pattern" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+            <TextField id="filenamePatternField" promptText="{name}_cyvox" text="{name}_cyvox" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+            <Label styleClass="field-caption" text="Threads" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+            <Spinner id="threadSpinner" editable="true" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+        </GridPane>
+        <CheckBox id="skipExistingCheckBox" selected="true" text="Skip files that already exist" />
+        <CheckBox id="overwriteExistingCheckBox" text="Overwrite existing compressed files" />
+        <CheckBox id="keepMetadataCheckBox" selected="true" text="Keep video metadata" />
+        <Button id="settingsCloseButton" mnemonicParsing="false" maxWidth="1.7976931348623157E308" styleClass="primary-action" text="Save Settings" />
+    </VBox>
+</StackPane>

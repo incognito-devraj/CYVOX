@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.shape.SVGPath?>
+
+<VBox alignment="TOP_CENTER" maxWidth="880.0" spacing="28.0" styleClass="home-view" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1">
+    <VBox alignment="CENTER" spacing="10.0" styleClass="hero-copy">
+        <HBox alignment="CENTER" spacing="0.0">
+            <Label styleClass="hero-title" text="Compress videos. Smarter" />
+            <Label styleClass="hero-dot" text="." />
+        </HBox>
+        <Label id="heroSubtitle" styleClass="hero-subtitle" text="Select a folder to begin." />
+    </VBox>
+
+    <GridPane hgap="46.0" maxWidth="840.0" styleClass="folder-grid">
+        <VBox spacing="10.0" GridPane.columnIndex="0">
+            <Label styleClass="field-caption" text="Input Folder" />
+            <HBox alignment="CENTER_LEFT" styleClass="path-picker">
+                <SVGPath content="M3 7h5l2 2h11v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M3 7V5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v2" styleClass="control-svg" />
+                <Label id="inputFolderValue" maxWidth="1.7976931348623157E308" styleClass="path-text" text="Choose input folder" HBox.hgrow="ALWAYS" />
+                <Button id="inputBrowseButton" mnemonicParsing="false" styleClass="path-button" text="Browse" />
+            </HBox>
+        </VBox>
+        <Label styleClass="flow-arrow" text="->" GridPane.columnIndex="1" />
+        <VBox spacing="10.0" GridPane.columnIndex="2">
+            <Label styleClass="field-caption" text="Output Folder" />
+            <HBox alignment="CENTER_LEFT" styleClass="path-picker">
+                <SVGPath content="M3 7h5l2 2h11v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M3 7V5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v2" styleClass="control-svg" />
+                <Label id="outputFolderValue" maxWidth="1.7976931348623157E308" styleClass="path-text" text="Choose output folder" HBox.hgrow="ALWAYS" />
+                <Button id="outputBrowseButton" mnemonicParsing="false" styleClass="path-button" text="Browse" />
+            </HBox>
+        </VBox>
+    </GridPane>
+
+    <HBox alignment="BOTTOM_LEFT" maxWidth="840.0" spacing="24.0">
+        <VBox spacing="10.0" HBox.hgrow="ALWAYS">
+            <Label styleClass="field-caption" text="Preset" />
+            <ComboBox id="presetComboBox" maxWidth="1.7976931348623157E308" prefHeight="48.0" />
+        </VBox>
+        <Button id="settingsOpenButton" mnemonicParsing="false" prefHeight="48.0" styleClass="secondary-action" text="Advanced Settings">
+            <graphic>
+                <SVGPath content="M4 21v-7 M4 10V3 M12 21v-9 M12 8V3 M20 21v-5 M20 12V3 M1 14h6 M9 8h6 M17 16h6" styleClass="button-svg" />
+            </graphic>
+        </Button>
+        <Button id="scanButton" mnemonicParsing="false" prefHeight="48.0" styleClass="secondary-action" text="Scan">
+            <graphic>
+                <SVGPath content="M21 21l-4.35-4.35 M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14z" styleClass="button-svg" />
+            </graphic>
+        </Button>
+        <Button id="compressButton" disable="true" mnemonicParsing="false" prefHeight="48.0" styleClass="primary-action" text="Compress">
+            <graphic>
+                <SVGPath content="M8 5v14l11-7z" styleClass="primary-button-svg" />
+            </graphic>
+        </Button>
+    </HBox>
+
+    <VBox id="statsPanel" maxWidth="840.0" spacing="14.0" styleClass="stats-panel">
+        <HBox alignment="CENTER_LEFT" spacing="24.0">
+            <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                <Label styleClass="stat-label" text="Estimated Size" />
+                <Label id="estimatedSizeValue" styleClass="stat-value" text="-" />
+            </VBox>
+            <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                <Label styleClass="stat-label" text="Original Size" />
+                <Label id="originalSizeValue" styleClass="stat-value" text="-" />
+            </VBox>
+            <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                <Label styleClass="stat-label" text="Space Saved" />
+                <Label id="spaceSavedValue" styleClass="stat-value accent-stat" text="-" />
+            </VBox>
+            <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                <Label styleClass="stat-label" text="Compression Ratio" />
+                <Label id="compressionRatioValue" styleClass="stat-value" text="-" />
+            </VBox>
+        </HBox>
+        <Label id="currentStatusValue" styleClass="current-status" text="Ready" />
+    </VBox>
+</VBox>

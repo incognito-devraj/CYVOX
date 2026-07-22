@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<StackPane fx:id="windowRoot" prefHeight="820.0" prefWidth="1280.0" styleClass="window-scene" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.cyvox.controller.DashboardController">
+    <BorderPane fx:id="appWindow" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" styleClass="app-window">
+        <top>
+            <fx:include fx:id="titleBar" source="TitleBar.fxml" />
+        </top>
+        <center>
+            <VBox alignment="TOP_CENTER" spacing="30.0" styleClass="home-shell">
+                <padding>
+                    <Insets bottom="28.0" left="96.0" right="96.0" top="28.0" />
+                </padding>
+                <fx:include fx:id="homeView" source="HomeView.fxml" />
+                <fx:include fx:id="dropZone" source="DropZone.fxml" />
+                <fx:include fx:id="progressView" source="ProgressView.fxml" />
+            </VBox>
+        </center>
+        <bottom>
+            <VBox fx:id="statusBar" styleClass="status-bar">
+                <fx:include source="Toast.fxml" />
+            </VBox>
+        </bottom>
+    </BorderPane>
+    <fx:include fx:id="settingsDialog" source="SettingsDialog.fxml" />
+</StackPane>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.shape.SVGPath?>
+
+<StackPane id="dropZonePane" maxWidth="840.0" minHeight="260.0" styleClass="drop-zone" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1">
+    <padding>
+        <Insets bottom="32.0" left="32.0" right="32.0" top="32.0" />
+    </padding>
+    <VBox alignment="CENTER" spacing="16.0">
+        <StackPane styleClass="drop-icon-stack">
+            <SVGPath content="M3 7h5l2 2h11v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M3 7V5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v2" styleClass="drop-folder-icon" />
+            <SVGPath content="M10 8v8l6-4z" styleClass="drop-play-icon" />
+        </StackPane>
+        <Label id="dropZoneHeading" styleClass="drop-heading" text="Drag &amp; drop a folder here" />
+        <Label styleClass="drop-or" text="or" />
+        <Button id="dropChooseButton" mnemonicParsing="false" styleClass="choose-folder-button" text="Choose Folder">
+            <graphic>
+                <SVGPath content="M3 7h5l2 2h11v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M3 7V5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v2" styleClass="choose-svg" />
+            </graphic>
+        </Button>
+    </VBox>
+</StackPane>

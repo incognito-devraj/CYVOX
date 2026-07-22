@@ -1,0 +1,70 @@
+.app-window {
+    -fx-background-color: #FAFAFB;
+    -fx-background-radius: 18px;
+    -fx-border-color: rgba(17, 24, 39, 0.10);
+    -fx-border-radius: 18px;
+    -fx-effect: dropshadow(gaussian, rgba(17, 24, 39, 0.16), 38, 0.20, 0, 18);
+}
+
+.title-bar {
+    -fx-background-color: transparent;
+}
+
+.logo-text {
+    -fx-text-fill: #111827;
+    -fx-font-size: 28px;
+    -fx-font-weight: 600;
+    -fx-letter-spacing: 6px;
+}
+
+.logo-mark {
+    -fx-fill: linear-gradient(to bottom right, #3B82F6, #6B5BFF);
+}
+
+.title-svg,
+.status-svg,
+.button-svg,
+.control-svg {
+    -fx-fill: #111827;
+}
+
+.status-bar {
+    -fx-padding: 0 56px 28px 56px;
+}
+
+.toast-row {
+    -fx-min-height: 44px;
+}
+
+.status-dot {
+    -fx-fill: #3B82F6;
+}
+
+.metric-divider {
+    -fx-text-fill: #D1D5DB;
+}
+
+.settings-overlay {
+    -fx-background-color: rgba(17, 24, 39, 0.22);
+}
+
+.settings-card {
+    -fx-background-color: #FFFFFF;
+    -fx-background-radius: 26px;
+    -fx-border-color: rgba(17, 24, 39, 0.08);
+    -fx-border-radius: 26px;
+    -fx-effect: dropshadow(gaussian, rgba(17, 24, 39, 0.18), 34, 0.20, 0, 16);
+}
+
+.progress-icon-wrap {
+    -fx-background-color: linear-gradient(to bottom right, #3B82F6, #6B5BFF);
+    -fx-background-radius: 18px;
+    -fx-min-width: 46px;
+    -fx-min-height: 46px;
+    -fx-max-width: 46px;
+    -fx-max-height: 46px;
+}
+
+.progress-icon {
+    -fx-fill: #FFFFFF;
+}

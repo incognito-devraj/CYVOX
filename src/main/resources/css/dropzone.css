@@ -1,0 +1,44 @@
+.drop-zone {
+    -fx-background-color: rgba(255, 255, 255, 0.42);
+    -fx-background-radius: 24px;
+    -fx-border-color: rgba(156, 163, 175, 0.45);
+    -fx-border-radius: 24px;
+    -fx-border-style: segments(7, 7);
+    -fx-effect: innershadow(gaussian, rgba(255, 255, 255, 0.90), 20, 0.2, 0, 1);
+}
+
+.drop-zone-active {
+    -fx-background-color: rgba(59, 130, 246, 0.06);
+    -fx-border-color: rgba(59, 130, 246, 0.65);
+}
+
+.drop-icon-stack {
+    -fx-background-color: rgba(239, 246, 255, 0.74);
+    -fx-background-radius: 22px;
+    -fx-min-width: 96px;
+    -fx-min-height: 76px;
+    -fx-effect: dropshadow(gaussian, rgba(59, 130, 246, 0.16), 24, 0.26, 0, 8);
+}
+
+.drop-folder-icon {
+    -fx-fill: #DBEAFE;
+    -fx-scale-x: 3.2;
+    -fx-scale-y: 3.2;
+}
+
+.drop-play-icon {
+    -fx-fill: linear-gradient(to bottom right, #3B82F6, #6B5BFF);
+    -fx-scale-x: 1.7;
+    -fx-scale-y: 1.7;
+}
+
+.drop-heading {
+    -fx-text-fill: #111827;
+    -fx-font-size: 20px;
+    -fx-font-weight: 600;
+}
+
+.drop-or {
+    -fx-text-fill: #9CA3AF;
+    -fx-font-size: 13px;
+}

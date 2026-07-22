@@ -1,0 +1,6 @@
+.home-view,
+.drop-zone,
+.progress-view,
+.stats-panel {
+    -fx-opacity: 1;
+}

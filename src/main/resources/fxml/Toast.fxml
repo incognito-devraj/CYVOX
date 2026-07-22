@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.shape.Circle?>
+<?import javafx.scene.shape.SVGPath?>
+
+<HBox alignment="CENTER_LEFT" spacing="14.0" styleClass="toast-row" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1">
+    <Circle id="statusDot" radius="4.5" styleClass="status-dot" />
+    <Label id="toastTitle" styleClass="toast-title" text="Ready" />
+    <Label id="toastMessage" styleClass="toast-message" text="Select a folder to scan your videos." />
+    <Region HBox.hgrow="ALWAYS" />
+    <SVGPath content="M12 20h.01 M6 20h.01 M18 20h.01 M8 4h8l1 4H7z M5 8h14l-1 12H6z" styleClass="status-svg" />
+    <Label styleClass="system-metric" text="CPU 12%" />
+    <Label styleClass="metric-divider" text="|" />
+    <SVGPath content="M6 3h12v18H6z M9 3V1 M15 3V1 M9 23v-2 M15 23v-2 M3 9h3 M3 15h3 M18 9h3 M18 15h3" styleClass="status-svg" />
+    <Label styleClass="system-metric" text="RAM 28%" />
+    <Label styleClass="metric-divider" text="|" />
+    <SVGPath content="M5 3h14v18H5z M9 7h6 M9 11h6 M9 15h3" styleClass="status-svg" />
+    <Label styleClass="system-metric" text="Disk 8%" />
+</HBox>
