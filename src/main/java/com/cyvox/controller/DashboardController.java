@@ -2,8 +2,8 @@ package com.cyvox.controller;
 
 import com.cyvox.exception.FfmpegException;
 import com.cyvox.exception.FfprobeException;
+import com.cyvox.model.BatchCompressionResult;
 import com.cyvox.model.CompressionPreset;
-import com.cyvox.model.CompressionRequest;
 import com.cyvox.model.CompressionResult;
 import com.cyvox.model.CompressionStatus;
 import com.cyvox.model.ScanResult;
@@ -14,7 +14,7 @@ import com.cyvox.service.VideoCompressionService;
 import com.cyvox.service.VideoAnalysisService;
 import com.cyvox.service.VideoScannerService;
 import com.cyvox.task.VideoAnalysisTask;
-import com.cyvox.task.VideoCompressionTask;
+import com.cyvox.task.BatchCompressionTask;
 import com.cyvox.task.VideoScanTask;
 import com.cyvox.util.FileSizeFormatter;
 import javafx.fxml.FXML;
@@ -67,7 +67,7 @@ public final class DashboardController {
     private Path selectedOutputFolder;
     private VideoScanTask activeScanTask;
     private VideoAnalysisTask activeAnalysisTask;
-    private VideoCompressionTask activeCompressionTask;
+    private BatchCompressionTask activeBatchCompressionTask;
     private List<VideoFile> analyzedVideos = new ArrayList<>();
 
     @FXML
@@ -272,8 +272,8 @@ public final class DashboardController {
 
     @FXML
     private void handleCompressionRequested() {
-        if (activeCompressionTask != null && activeCompressionTask.isRunning()) {
-            appendLog("compress", "A compression task is already in progress.");
+        if (activeBatchCompressionTask != null && activeBatchCompressionTask.isRunning()) {
+            appendLog("compress", "A batch compression task is already in progress.");
             return;
         }
         if (selectedOutputFolder == null) {
@@ -287,13 +287,9 @@ public final class DashboardController {
             return;
         }
 
-        int selectedIndex = queueListView.getSelectionModel().getSelectedIndex();
-        VideoFile selectedVideo = selectedIndex >= 0 && selectedIndex < analyzedVideos.size()
-                ? analyzedVideos.get(selectedIndex)
-                : analyzedVideos.getFirst();
-
-        CompressionRequest compressionRequest = new CompressionRequest(
-                selectedVideo,
+        activeBatchCompressionTask = new BatchCompressionTask(
+                videoCompressionService,
+                analyzedVideos,
                 selectedOutputFolder,
                 CompressionPreset.fromDisplayName(presetComboBox.getValue()),
                 filenamePatternField.getText().trim(),
@@ -302,31 +298,24 @@ public final class DashboardController {
                 keepMetadataCheckBox.isSelected()
         );
 
-        try {
-            activeCompressionTask = new VideoCompressionTask(videoCompressionService, compressionRequest);
-        } catch (FfmpegException exception) {
-            handleFfmpegUnavailable(exception);
-            return;
-        }
-
         compressionProgressBar.progressProperty().unbind();
-        compressionProgressBar.progressProperty().bind(activeCompressionTask.progressProperty());
+        compressionProgressBar.progressProperty().bind(activeBatchCompressionTask.progressProperty());
         statusValue.textProperty().unbind();
-        statusValue.textProperty().bind(activeCompressionTask.messageProperty());
+        statusValue.textProperty().bind(activeBatchCompressionTask.messageProperty());
         currentFileValue.textProperty().unbind();
-        currentFileValue.setText(selectedVideo.fileName());
-        workspaceStatusValue.setText("Compressing video");
-        queueStateLabel.setText("Encoding " + selectedVideo.fileName());
-        compressionSpeedValue.setText("Encoding");
+        currentFileValue.textProperty().bind(activeBatchCompressionTask.messageProperty());
+        workspaceStatusValue.setText("Compressing batch");
+        queueStateLabel.setText("Encoding queue");
+        compressionSpeedValue.setText("Batch encoding");
         elapsedTimeValue.setText("In progress");
         remainingTimeValue.setText("Estimating");
-        appendLog("compress", "Starting single-file compression for " + selectedVideo.fileName() + ".");
+        appendLog("compress", "Starting batch compression for " + analyzedVideos.size() + " videos.");
         updateActionControls();
 
-        activeCompressionTask.setOnSucceeded(event -> handleCompressionSucceeded(selectedVideo, activeCompressionTask.getValue()));
-        activeCompressionTask.setOnFailed(event -> handleCompressionFailed(activeCompressionTask.getException()));
-        activeCompressionTask.setOnCancelled(event -> handleCompressionCancelled());
-        scanExecutor.submit(activeCompressionTask);
+        activeBatchCompressionTask.setOnSucceeded(event -> handleBatchCompressionSucceeded(activeBatchCompressionTask.getValue()));
+        activeBatchCompressionTask.setOnFailed(event -> handleBatchCompressionFailed(activeBatchCompressionTask.getException()));
+        activeBatchCompressionTask.setOnCancelled(event -> handleBatchCompressionCancelled());
+        scanExecutor.submit(activeBatchCompressionTask);
     }
 
     @FXML
@@ -412,8 +401,8 @@ public final class DashboardController {
         if (activeAnalysisTask != null && activeAnalysisTask.isRunning()) {
             activeAnalysisTask.cancel();
         }
-        if (activeCompressionTask != null && activeCompressionTask.isRunning()) {
-            activeCompressionTask.cancel();
+        if (activeBatchCompressionTask != null && activeBatchCompressionTask.isRunning()) {
+            activeBatchCompressionTask.cancel();
         }
         scanExecutor.shutdownNow();
     }
@@ -482,10 +471,6 @@ public final class DashboardController {
         updateActionControls();
         appendLog("scan", "Scan cancelled.");
         activeScanTask = null;
-    }
-
-    private void updateScanControls(boolean scanReady) {
-        scanButton.setDisable(!scanReady);
     }
 
     private String describeVideo(VideoFile videoFile) {
@@ -589,52 +574,58 @@ public final class DashboardController {
         updateActionControls();
     }
 
-    private void handleCompressionSucceeded(VideoFile selectedVideo, CompressionResult compressionResult) {
+    private void handleBatchCompressionSucceeded(BatchCompressionResult batchCompressionResult) {
         compressionProgressBar.progressProperty().unbind();
         statusValue.textProperty().unbind();
         currentFileValue.textProperty().unbind();
-        statusValue.setText(compressionResult.message());
-        workspaceStatusValue.setText("Compression complete");
-        queueStateLabel.setText("Single-file compression complete");
-        currentFileValue.setText(selectedVideo.fileName());
-        compressionSpeedValue.setText(compressionResult.status() == CompressionStatus.SKIPPED ? "Skipped" : "Completed");
-        elapsedTimeValue.setText(formatDuration(compressionResult.elapsedTime()));
+        statusValue.setText("Batch compression complete");
+        workspaceStatusValue.setText("Batch complete");
+        queueStateLabel.setText(batchCompressionResult.completedCount() + " completed, " + batchCompressionResult.skippedCount() + " skipped");
+        currentFileValue.setText("No active file");
+        compressionSpeedValue.setText("Batch complete");
+        elapsedTimeValue.setText(formatDuration(batchCompressionResult.elapsedTime()));
         remainingTimeValue.setText("00:00:00");
-        if (compressionResult.status() == CompressionStatus.COMPLETED) {
-            estimatedSavingsValue.setText("%.0f%%".formatted(compressionResult.savingsRatio() * 100));
+        estimatedSavingsValue.setText("%.0f%%".formatted(batchCompressionResult.overallSavingsRatio() * 100));
+        reportTargetsLabel.setText("Batch output ready in " + selectedOutputFolder.getFileName() + ".");
+        queueListView.getItems().setAll(buildBatchResultRows(batchCompressionResult.results()));
+        appendLog("compress", "Batch complete: " + batchCompressionResult.completedCount()
+                + " completed, " + batchCompressionResult.skippedCount()
+                + " skipped, savings " + "%.0f%%".formatted(batchCompressionResult.overallSavingsRatio() * 100) + ".");
+        activeBatchCompressionTask = null;
+        updateActionControls();
+    }
+
+    private void handleBatchCompressionFailed(Throwable throwable) {
+        if (throwable instanceof FfmpegException ffmpegException) {
+            handleFfmpegUnavailable(ffmpegException);
+            activeBatchCompressionTask = null;
+            return;
         }
-        reportTargetsLabel.setText("Last output: " + compressionResult.outputFile().getFileName());
-        appendLog("compress", compressionResult.message() + " Output: " + compressionResult.outputFile());
-        activeCompressionTask = null;
-        updateActionControls();
-    }
-
-    private void handleCompressionFailed(Throwable throwable) {
         compressionProgressBar.progressProperty().unbind();
         statusValue.textProperty().unbind();
         currentFileValue.textProperty().unbind();
-        statusValue.setText("Compression failed");
-        workspaceStatusValue.setText("Compression failed");
-        queueStateLabel.setText("Compression failed");
+        statusValue.setText("Batch compression failed");
+        workspaceStatusValue.setText("Batch failed");
+        queueStateLabel.setText("Batch compression failed");
         currentFileValue.setText("No active file");
-        compressionSpeedValue.setText("Compression failed");
+        compressionSpeedValue.setText("Batch failed");
         remainingTimeValue.setText("--:--:--");
-        appendLog("compress", "Compression failed: " + Objects.requireNonNullElse(throwable.getMessage(), throwable.getClass().getSimpleName()));
-        activeCompressionTask = null;
+        appendLog("compress", "Batch compression failed: " + Objects.requireNonNullElse(throwable.getMessage(), throwable.getClass().getSimpleName()));
+        activeBatchCompressionTask = null;
         updateActionControls();
     }
 
-    private void handleCompressionCancelled() {
+    private void handleBatchCompressionCancelled() {
         compressionProgressBar.progressProperty().unbind();
         statusValue.textProperty().unbind();
         currentFileValue.textProperty().unbind();
-        statusValue.setText("Compression cancelled");
-        workspaceStatusValue.setText("Compression cancelled");
-        queueStateLabel.setText("Compression cancelled");
+        statusValue.setText("Batch compression cancelled");
+        workspaceStatusValue.setText("Batch cancelled");
+        queueStateLabel.setText("Batch compression cancelled");
         currentFileValue.setText("No active file");
-        compressionSpeedValue.setText("Compression cancelled");
-        appendLog("compress", "Compression cancelled.");
-        activeCompressionTask = null;
+        compressionSpeedValue.setText("Batch cancelled");
+        appendLog("compress", "Batch compression cancelled.");
+        activeBatchCompressionTask = null;
         updateActionControls();
     }
 
@@ -653,7 +644,7 @@ public final class DashboardController {
     private void updateActionControls() {
         boolean busy = (activeScanTask != null && activeScanTask.isRunning())
                 || (activeAnalysisTask != null && activeAnalysisTask.isRunning())
-                || (activeCompressionTask != null && activeCompressionTask.isRunning());
+                || (activeBatchCompressionTask != null && activeBatchCompressionTask.isRunning());
         scanButton.setDisable(selectedInputFolder == null || busy);
         boolean compressionReady = selectedOutputFolder != null && !analyzedVideos.isEmpty() && !busy;
         compressButton.setDisable(!compressionReady);
@@ -673,6 +664,18 @@ public final class DashboardController {
         long minutes = (totalSeconds % 3600) / 60;
         long seconds = totalSeconds % 60;
         return "%02d:%02d:%02d".formatted(hours, minutes, seconds);
+    }
+
+    private List<String> buildBatchResultRows(List<CompressionResult> results) {
+        return results.stream()
+                .map(result -> {
+                    String status = result.status() == CompressionStatus.SKIPPED ? "SKIPPED" : "DONE";
+                    String outputName = result.outputFile() == null ? "No output" : result.outputFile().getFileName().toString();
+                    return status + "  |  " + outputName
+                            + "  |  " + FileSizeFormatter.format(result.compressedSizeBytes())
+                            + "  |  " + result.message();
+                })
+                .toList();
     }
 
     private String yesNo(boolean selected) {

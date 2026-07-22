@@ -6,7 +6,7 @@
 - [x] Recursive scanner
 - [x] FFprobe integration
 - [x] Compression engine
-- [ ] Batch queue
+- [x] Batch queue
 - [ ] Pause / Resume / Cancel
 - [ ] Reports
 - [ ] Logging
