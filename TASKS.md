@@ -4,7 +4,7 @@
 - [x] Maven + JavaFX
 - [x] UI
 - [x] Recursive scanner
-- [ ] FFprobe integration
+- [x] FFprobe integration
 - [ ] Compression engine
 - [ ] Batch queue
 - [ ] Pause / Resume / Cancel

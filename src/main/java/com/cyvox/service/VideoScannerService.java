@@ -45,7 +45,8 @@ public final class VideoScannerService {
                             file,
                             file.getFileName().toString(),
                             extensionOf(file),
-                            attributes.size()
+                            attributes.size(),
+                            null
                     ));
                 }
                 return FileVisitResult.CONTINUE;

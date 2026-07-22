@@ -6,6 +6,10 @@ public record VideoFile(
         Path path,
         String fileName,
         String extension,
-        long sizeBytes
+        long sizeBytes,
+        VideoMetadata metadata
 ) {
+    public VideoFile withMetadata(VideoMetadata updatedMetadata) {
+        return new VideoFile(path, fileName, extension, sizeBytes, updatedMetadata);
+    }
 }

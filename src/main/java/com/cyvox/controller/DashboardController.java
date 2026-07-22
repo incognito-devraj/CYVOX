@@ -1,8 +1,12 @@
 package com.cyvox.controller;
 
+import com.cyvox.exception.FfprobeException;
 import com.cyvox.model.ScanResult;
 import com.cyvox.model.VideoFile;
+import com.cyvox.service.FfprobeResolver;
+import com.cyvox.service.VideoAnalysisService;
 import com.cyvox.service.VideoScannerService;
+import com.cyvox.task.VideoAnalysisTask;
 import com.cyvox.task.VideoScanTask;
 import com.cyvox.util.FileSizeFormatter;
 import javafx.fxml.FXML;
@@ -40,6 +44,7 @@ public final class DashboardController {
     }
 
     private final VideoScannerService videoScannerService = new VideoScannerService();
+    private final VideoAnalysisService videoAnalysisService = new VideoAnalysisService(new FfprobeResolver());
     private final ExecutorService scanExecutor = Executors.newSingleThreadExecutor(runnable -> {
         Thread worker = new Thread(runnable, "cyvox-scan-worker");
         worker.setDaemon(true);
@@ -48,6 +53,7 @@ public final class DashboardController {
 
     private Path selectedInputFolder;
     private VideoScanTask activeScanTask;
+    private VideoAnalysisTask activeAnalysisTask;
 
     @FXML
     private Label inputFolderValue;
@@ -165,7 +171,7 @@ public final class DashboardController {
                 "Select an input folder to prepare recursive scanning.",
                 "Choose an output folder for compressed files and reports.",
                 "Pick a preset and review hardware / overwrite settings.",
-                "Run Scan to populate the compression queue in Milestone 3."
+                "Run Scan to populate the compression queue and analyze videos."
         );
         logTextArea.setText("""
                 [startup] CYVOX dashboard initialized.
@@ -183,7 +189,7 @@ public final class DashboardController {
         currentFileValue.setText("No active file");
         estimatedSavingsValue.setText("Pending");
         compressionSpeedValue.setText("Scanner idle");
-        reportTargetsLabel.setText("HTML, CSV, and JSON reports unlock after compression and reporting milestones.");
+        reportTargetsLabel.setText("Reports unlock later. Metadata analysis will use bundled ffprobe when available.");
         nvidiaStatusLabel.setText("CPU fallback");
         intelStatusLabel.setText("CPU fallback");
         amdStatusLabel.setText("CPU fallback");
@@ -223,6 +229,10 @@ public final class DashboardController {
         }
         if (activeScanTask != null && activeScanTask.isRunning()) {
             appendLog("scan", "A recursive scan is already in progress.");
+            return;
+        }
+        if (activeAnalysisTask != null && activeAnalysisTask.isRunning()) {
+            appendLog("scan", "Video analysis is already in progress.");
             return;
         }
 
@@ -328,6 +338,9 @@ public final class DashboardController {
         if (activeScanTask != null && activeScanTask.isRunning()) {
             activeScanTask.cancel();
         }
+        if (activeAnalysisTask != null && activeAnalysisTask.isRunning()) {
+            activeAnalysisTask.cancel();
+        }
         scanExecutor.shutdownNow();
     }
 
@@ -344,19 +357,26 @@ public final class DashboardController {
         currentFileValue.setText("No active file");
         elapsedTimeValue.setText("00:00:00");
         remainingTimeValue.setText("--:--:--");
-        compressionSpeedValue.setText("Scan complete");
+        compressionSpeedValue.setText("Metadata pending");
 
         queueListView.getItems().setAll(scanResult.videos().stream()
                 .map(this::describeVideo)
                 .toList());
         if (scanResult.videos().isEmpty()) {
             queueListView.getItems().setAll("No supported video files were found in the selected folder.");
+            compressionSpeedValue.setText("No videos found");
+            estimatedSavingsValue.setText("N/A");
+            reportTargetsLabel.setText("Nothing to analyze in the selected folder.");
+            activeScanTask = null;
+            return;
         }
 
         updateScanControls(selectedInputFolder != null);
         compressButton.setDisable(true);
         appendLog("scan", "Scan complete: found " + scanResult.statistics().videoCount()
                 + " supported videos totaling " + FileSizeFormatter.format(scanResult.statistics().totalSizeBytes()) + ".");
+        activeScanTask = null;
+        startVideoAnalysis(scanResult);
     }
 
     private void handleScanFailed(Throwable throwable) {
@@ -371,6 +391,7 @@ public final class DashboardController {
         updateScanControls(selectedInputFolder != null);
         compressButton.setDisable(true);
         appendLog("scan", "Scan failed: " + Objects.requireNonNullElse(throwable.getMessage(), throwable.getClass().getSimpleName()));
+        activeScanTask = null;
     }
 
     private void handleScanCancelled() {
@@ -385,6 +406,7 @@ public final class DashboardController {
         updateScanControls(selectedInputFolder != null);
         compressButton.setDisable(true);
         appendLog("scan", "Scan cancelled.");
+        activeScanTask = null;
     }
 
     private void updateScanControls(boolean scanReady) {
@@ -392,8 +414,108 @@ public final class DashboardController {
     }
 
     private String describeVideo(VideoFile videoFile) {
-        return videoFile.fileName() + "  |  " + videoFile.extension().toUpperCase()
+        if (videoFile.metadata() == null) {
+            return videoFile.fileName() + "  |  " + videoFile.extension().toUpperCase()
+                    + "  |  " + FileSizeFormatter.format(videoFile.sizeBytes());
+        }
+        return videoFile.fileName()
+                + "  |  " + videoFile.metadata().resolution()
+                + "  |  " + videoFile.metadata().videoCodec().toUpperCase()
+                + "  |  " + formatSeconds(videoFile.metadata().durationSeconds())
                 + "  |  " + FileSizeFormatter.format(videoFile.sizeBytes());
+    }
+
+    private void startVideoAnalysis(ScanResult scanResult) {
+        try {
+            activeAnalysisTask = new VideoAnalysisTask(videoAnalysisService, scanResult.videos());
+        } catch (FfprobeException exception) {
+            handleFfprobeUnavailable(exception);
+            return;
+        }
+
+        compressionProgressBar.progressProperty().unbind();
+        compressionProgressBar.progressProperty().bind(activeAnalysisTask.progressProperty());
+        statusValue.textProperty().unbind();
+        statusValue.textProperty().bind(activeAnalysisTask.messageProperty());
+        currentFileValue.textProperty().unbind();
+        currentFileValue.textProperty().bind(activeAnalysisTask.messageProperty());
+        queueStateLabel.setText("Analyzing metadata");
+        workspaceStatusValue.setText("Analyzing metadata");
+        appendLog("analysis", "Starting FFprobe metadata extraction for " + scanResult.videos().size() + " videos.");
+
+        activeAnalysisTask.setOnSucceeded(event -> handleAnalysisSucceeded(activeAnalysisTask.getValue()));
+        activeAnalysisTask.setOnFailed(event -> handleAnalysisFailed(activeAnalysisTask.getException()));
+        activeAnalysisTask.setOnCancelled(event -> handleAnalysisCancelled());
+        scanExecutor.submit(activeAnalysisTask);
+    }
+
+    private void handleAnalysisSucceeded(List<VideoFile> analyzedVideos) {
+        compressionProgressBar.progressProperty().unbind();
+        statusValue.textProperty().unbind();
+        currentFileValue.textProperty().unbind();
+        statusValue.setText("Analysis complete");
+        currentFileValue.setText("No active file");
+        queueStateLabel.setText(analyzedVideos.size() + " videos analyzed");
+        workspaceStatusValue.setText("Metadata ready");
+        compressionSpeedValue.setText("Analysis complete");
+        estimatedSavingsValue.setText("Estimator next");
+        reportTargetsLabel.setText("Duration, resolution, codec, bitrate, frame rate, and audio codec are now available.");
+        queueListView.getItems().setAll(analyzedVideos.stream().map(this::describeVideo).toList());
+        appendLog("analysis", "FFprobe analysis complete for " + analyzedVideos.size() + " videos.");
+        activeAnalysisTask = null;
+        updateScanControls(selectedInputFolder != null);
+    }
+
+    private void handleAnalysisFailed(Throwable throwable) {
+        compressionProgressBar.progressProperty().unbind();
+        statusValue.textProperty().unbind();
+        currentFileValue.textProperty().unbind();
+        currentFileValue.setText("No active file");
+        compressionSpeedValue.setText("Analysis unavailable");
+        estimatedSavingsValue.setText("Pending");
+        queueStateLabel.setText("Scan complete, analysis failed");
+        workspaceStatusValue.setText("Analysis failed");
+        statusValue.setText("Analysis failed");
+        appendLog("analysis", "FFprobe analysis failed: " + Objects.requireNonNullElse(throwable.getMessage(), throwable.getClass().getSimpleName()));
+        activeAnalysisTask = null;
+        updateScanControls(selectedInputFolder != null);
+    }
+
+    private void handleAnalysisCancelled() {
+        compressionProgressBar.progressProperty().unbind();
+        statusValue.textProperty().unbind();
+        currentFileValue.textProperty().unbind();
+        currentFileValue.setText("No active file");
+        queueStateLabel.setText("Analysis cancelled");
+        workspaceStatusValue.setText("Analysis cancelled");
+        statusValue.setText("Analysis cancelled");
+        compressionSpeedValue.setText("Analysis cancelled");
+        appendLog("analysis", "FFprobe analysis cancelled.");
+        activeAnalysisTask = null;
+        updateScanControls(selectedInputFolder != null);
+    }
+
+    private void handleFfprobeUnavailable(FfprobeException exception) {
+        compressionProgressBar.progressProperty().unbind();
+        statusValue.textProperty().unbind();
+        currentFileValue.textProperty().unbind();
+        currentFileValue.setText("No active file");
+        queueStateLabel.setText("Scan complete, ffprobe unavailable");
+        workspaceStatusValue.setText("Waiting for ffprobe");
+        statusValue.setText("ffprobe unavailable");
+        compressionSpeedValue.setText("Analysis unavailable");
+        estimatedSavingsValue.setText("Pending");
+        reportTargetsLabel.setText("Bundle ffprobe.exe in the ffmpeg folder to enable metadata extraction.");
+        appendLog("analysis", exception.getMessage());
+        updateScanControls(selectedInputFolder != null);
+    }
+
+    private String formatSeconds(double seconds) {
+        long roundedSeconds = Math.round(seconds);
+        long hours = roundedSeconds / 3600;
+        long minutes = (roundedSeconds % 3600) / 60;
+        long remainingSeconds = roundedSeconds % 60;
+        return "%02d:%02d:%02d".formatted(hours, minutes, remainingSeconds);
     }
 
     private String yesNo(boolean selected) {
