@@ -4,6 +4,8 @@ Compress Smarter. Store More.
 
 CYVOX is a Java 21 + JavaFX desktop application for intelligent batch video compression on Windows. It scans folders recursively, reads video metadata with FFprobe, compresses batches with FFmpeg, supports pause/resume/cancel, and writes HTML/CSV/JSON reports after each completed batch.
 
+CYVOX automatically probes bundled FFmpeg hardware encoders and uses GPU acceleration when the encoder works on the current machine. If NVIDIA/Intel/AMD hardware encoding is unavailable or the driver rejects it, CYVOX safely falls back to CPU encoding.
+
 ## Status
 
 The core desktop app is ready for local testing:
@@ -24,6 +26,8 @@ The optional `CYVOX_Setup.exe` installer requires WiX Toolset on Windows because
 - Java 21 JDK with `jpackage`
 - Maven Wrapper from this repo
 - `ffmpeg/ffmpeg.exe` and `ffmpeg/ffprobe.exe`
+
+For NVIDIA GPU acceleration, the installed NVIDIA driver must support the NVENC API required by the bundled FFmpeg build. If it does not, compression still works through CPU fallback.
 
 The local FFmpeg executables are intentionally not committed because they are large binary files. Put them in:
 

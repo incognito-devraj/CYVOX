@@ -5,6 +5,7 @@ import com.cyvox.model.CompressionControl;
 import com.cyvox.model.CompressionRequest;
 import com.cyvox.model.CompressionResult;
 import com.cyvox.model.CompressionStatus;
+import com.cyvox.model.HardwareEncoder;
 import com.cyvox.model.VideoFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,9 +27,11 @@ public final class VideoCompressionService {
     private static final Logger LOGGER = LoggerFactory.getLogger(VideoCompressionService.class);
 
     private final FfmpegResolver ffmpegResolver;
+    private final HardwareEncoderService hardwareEncoderService;
 
     public VideoCompressionService(FfmpegResolver ffmpegResolver) {
         this.ffmpegResolver = ffmpegResolver;
+        this.hardwareEncoderService = new HardwareEncoderService(ffmpegResolver);
     }
 
     public CompressionResult compress(CompressionRequest request, CompressionProgressListener progressListener) throws IOException {
@@ -80,9 +83,22 @@ public final class VideoCompressionService {
             }
         }
 
-        List<String> command = buildCommand(request, outputFile);
+        HardwareEncoder hardwareEncoder = hardwareEncoderService.resolveBestEncoder(request.preset());
+        return compressWithEncoder(request, progressListener, compressionControl, outputFile, hardwareEncoder, true);
+    }
+
+    private CompressionResult compressWithEncoder(
+            CompressionRequest request,
+            CompressionProgressListener progressListener,
+            CompressionControl compressionControl,
+            Path outputFile,
+            HardwareEncoder hardwareEncoder,
+            boolean allowCpuRetry
+    ) throws IOException {
+        VideoFile inputFile = request.inputFile();
+        List<String> command = buildCommand(request, outputFile, hardwareEncoder);
         Instant start = Instant.now();
-        LOGGER.info("Starting ffmpeg for {}", inputFile.fileName());
+        LOGGER.info("Starting ffmpeg for {} using {}", inputFile.fileName(), hardwareEncoder.name());
         ProcessBuilder processBuilder = new ProcessBuilder(command);
         processBuilder.redirectErrorStream(true);
 
@@ -121,6 +137,11 @@ public final class VideoCompressionService {
         try {
             int exitCode = process.waitFor();
             if (exitCode != 0) {
+                if (allowCpuRetry && !hardwareEncoder.cpuFallback()) {
+                    LOGGER.warn("{} failed for {}; retrying with CPU encoder", hardwareEncoder.name(), inputFile.fileName());
+                    Files.deleteIfExists(outputFile);
+                    return compressWithEncoder(request, progressListener, compressionControl, outputFile, HardwareEncoder.cpu(), false);
+                }
                 throw new FfmpegException("ffmpeg exited with code " + exitCode + " for " + inputFile.fileName());
             }
         } catch (InterruptedException exception) {
@@ -138,7 +159,7 @@ public final class VideoCompressionService {
                 inputFile.sizeBytes(),
                 compressedSize,
                 Duration.between(start, Instant.now()),
-                "Compression completed successfully."
+                "Compression completed successfully using " + hardwareEncoder.name() + "."
         );
     }
 
@@ -157,18 +178,25 @@ public final class VideoCompressionService {
         return request.outputDirectory().resolve(resolvedName + ".mp4");
     }
 
-    private List<String> buildCommand(CompressionRequest request, Path outputFile) {
+    private List<String> buildCommand(CompressionRequest request, Path outputFile, HardwareEncoder hardwareEncoder) {
         List<String> command = new ArrayList<>();
         command.add(ffmpegResolver.resolve().toString());
         command.add("-y");
         command.add("-i");
         command.add(request.inputFile().path().toString());
         command.add("-c:v");
-        command.add(request.preset().videoEncoder());
-        command.add("-crf");
-        command.add(request.preset().crf());
-        command.add("-preset");
-        command.add(request.preset().presetValue());
+        command.add(hardwareEncoder.cpuFallback() ? request.preset().videoEncoder() : hardwareEncoder.videoEncoder());
+        if (hardwareEncoder.cpuFallback()) {
+            command.add("-crf");
+            command.add(request.preset().crf());
+            command.add("-preset");
+            command.add(request.preset().presetValue());
+        } else {
+            command.add(hardwareEncoder.qualityOption());
+            command.add(hardwareEncoder.qualityValue());
+            command.add(hardwareEncoder.presetOption());
+            command.add(hardwareEncoder.presetValue());
+        }
         command.add("-c:a");
         command.add("aac");
         command.add("-b:a");

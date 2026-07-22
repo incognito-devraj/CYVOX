@@ -63,6 +63,9 @@
     -fx-min-width: 34px;
     -fx-min-height: 34px;
     -fx-padding: 0;
+    -fx-text-fill: #111827;
+    -fx-font-size: 12px;
+    -fx-font-weight: 600;
 }
 
 .title-icon-button:hover {

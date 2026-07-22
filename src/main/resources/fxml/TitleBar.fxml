@@ -7,7 +7,7 @@
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.shape.SVGPath?>
 
-<HBox id="titleBarHandle" alignment="CENTER_LEFT" prefHeight="72.0" spacing="14.0" styleClass="title-bar" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1">
+<HBox id="titleBarHandle" alignment="CENTER_LEFT" minHeight="58.0" prefHeight="58.0" spacing="14.0" styleClass="title-bar" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1">
     <padding>
         <Insets left="48.0" right="30.0" />
     </padding>
@@ -15,24 +15,8 @@
     <SVGPath content="M8 5v14l11-7z" scaleX="1.45" scaleY="1.45" styleClass="logo-mark" />
     <Label styleClass="logo-text" text="OX" />
     <Region HBox.hgrow="ALWAYS" />
-    <Button id="settingsButton" mnemonicParsing="false" styleClass="title-icon-button">
-        <graphic>
-            <SVGPath content="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.5a1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 7.04 3.8l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c0 .66.39 1.26 1 1.51H21a2 2 0 1 1 0 4h-.09c-.66 0-1.26.39-1.51 1z" styleClass="title-svg" />
-        </graphic>
-    </Button>
-    <Button id="minimizeButton" mnemonicParsing="false" styleClass="title-icon-button">
-        <graphic>
-            <SVGPath content="M5 12h14" styleClass="title-svg" />
-        </graphic>
-    </Button>
-    <Button id="maximizeButton" mnemonicParsing="false" styleClass="title-icon-button">
-        <graphic>
-            <SVGPath content="M5 5h14v14H5z" styleClass="title-svg" />
-        </graphic>
-    </Button>
-    <Button id="closeButton" mnemonicParsing="false" styleClass="title-icon-button close-button">
-        <graphic>
-            <SVGPath content="M18 6 6 18 M6 6l12 12" styleClass="title-svg" />
-        </graphic>
-    </Button>
+    <Button id="settingsButton" mnemonicParsing="false" styleClass="title-icon-button" text="SET" />
+    <Button id="minimizeButton" mnemonicParsing="false" styleClass="title-icon-button" text="_" />
+    <Button id="maximizeButton" mnemonicParsing="false" styleClass="title-icon-button" text="[]" />
+    <Button id="closeButton" mnemonicParsing="false" styleClass="title-icon-button close-button" text="X" />
 </HBox>

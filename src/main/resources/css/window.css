@@ -8,6 +8,7 @@
 
 .title-bar {
     -fx-background-color: transparent;
+    -fx-padding: 0 6px 0 0;
 }
 
 .logo-text {

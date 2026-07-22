@@ -542,6 +542,13 @@ public final class DashboardController {
             UiAnimator.reveal(statsPanel);
         }
         if (newState == ApplicationState.COMPRESSING || newState == ApplicationState.COMPLETED) {
+            if (dropZonePane.isVisible()) {
+                UiAnimator.hide(dropZonePane);
+            }
+        } else if (!dropZonePane.isVisible()) {
+            UiAnimator.reveal(dropZonePane);
+        }
+        if (newState == ApplicationState.COMPRESSING || newState == ApplicationState.COMPLETED) {
             if (!progressView.isVisible()) {
                 UiAnimator.reveal(progressView);
             }

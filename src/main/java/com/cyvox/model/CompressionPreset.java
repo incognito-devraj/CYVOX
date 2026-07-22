@@ -4,8 +4,8 @@ import java.util.Arrays;
 
 public enum CompressionPreset {
     HIGH_QUALITY("High Quality", "libx265", "23", "192k", "medium"),
-    BALANCED("Balanced", "libx265", "28", "128k", "medium"),
-    MAXIMUM_COMPRESSION("Maximum Compression", "libx265", "33", "96k", "slow"),
+    BALANCED("Balanced", "libx265", "28", "128k", "fast"),
+    MAXIMUM_COMPRESSION("Maximum Compression", "libx265", "33", "96k", "fast"),
     ARCHIVE("Archive", "libsvtav1", "35", "128k", "8");
 
     private final String displayName;

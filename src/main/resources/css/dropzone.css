@@ -15,8 +15,8 @@
 .drop-icon-stack {
     -fx-background-color: rgba(239, 246, 255, 0.74);
     -fx-background-radius: 22px;
-    -fx-min-width: 96px;
-    -fx-min-height: 76px;
+    -fx-min-width: 78px;
+    -fx-min-height: 60px;
     -fx-effect: dropshadow(gaussian, rgba(59, 130, 246, 0.16), 24, 0.26, 0, 8);
 }
 
@@ -34,7 +34,7 @@
 
 .drop-heading {
     -fx-text-fill: #111827;
-    -fx-font-size: 20px;
+    -fx-font-size: 18px;
     -fx-font-weight: 600;
 }
 
