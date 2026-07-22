@@ -1,6 +1,7 @@
 .bootstrap/
 .mvn/wrapper/maven-wrapper.jar
 target/
+dist/
 *.log
 
 # Runtime output

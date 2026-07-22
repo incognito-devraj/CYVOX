@@ -13,6 +13,7 @@ import com.cyvox.service.FfprobeResolver;
 import com.cyvox.service.VideoCompressionService;
 import com.cyvox.service.VideoAnalysisService;
 import com.cyvox.service.VideoScannerService;
+import com.cyvox.service.ReportService;
 import com.cyvox.task.VideoAnalysisTask;
 import com.cyvox.task.BatchCompressionTask;
 import com.cyvox.task.VideoScanTask;
@@ -30,6 +31,8 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Window;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -45,6 +48,7 @@ import java.util.concurrent.Executors;
 
 public final class DashboardController {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(DashboardController.class);
     private static final Map<String, String> PRESET_DETAILS = new LinkedHashMap<>();
 
     static {
@@ -57,6 +61,7 @@ public final class DashboardController {
     private final VideoScannerService videoScannerService = new VideoScannerService();
     private final VideoAnalysisService videoAnalysisService = new VideoAnalysisService(new FfprobeResolver());
     private final VideoCompressionService videoCompressionService = new VideoCompressionService(new FfmpegResolver());
+    private final ReportService reportService = new ReportService();
     private final ExecutorService scanExecutor = Executors.newSingleThreadExecutor(runnable -> {
         Thread worker = new Thread(runnable, "cyvox-scan-worker");
         worker.setDaemon(true);
@@ -171,6 +176,15 @@ public final class DashboardController {
 
     @FXML
     private Button compressButton;
+
+    @FXML
+    private Button pauseButton;
+
+    @FXML
+    private Button resumeButton;
+
+    @FXML
+    private Button cancelButton;
 
     @FXML
     private ProgressBar compressionProgressBar;
@@ -320,17 +334,49 @@ public final class DashboardController {
 
     @FXML
     private void handlePauseRequested() {
-        appendLog("pause", "Pause control is reserved for Milestone 7.");
+        if (activeBatchCompressionTask == null || !activeBatchCompressionTask.isRunning()) {
+            appendLog("pause", "No active batch to pause.");
+            return;
+        }
+        activeBatchCompressionTask.pause();
+        workspaceStatusValue.setText("Batch paused");
+        queueStateLabel.setText("Paused");
+        appendLog("pause", "Batch pause requested.");
+        updateActionControls();
     }
 
     @FXML
     private void handleResumeRequested() {
-        appendLog("resume", "Resume control is reserved for Milestone 7.");
+        if (activeBatchCompressionTask == null || !activeBatchCompressionTask.isPaused()) {
+            appendLog("resume", "No paused batch to resume.");
+            return;
+        }
+        activeBatchCompressionTask.resume();
+        workspaceStatusValue.setText("Compressing batch");
+        queueStateLabel.setText("Encoding queue");
+        appendLog("resume", "Batch resumed.");
+        updateActionControls();
     }
 
     @FXML
     private void handleCancelRequested() {
-        appendLog("cancel", "Cancel control is reserved for Milestone 7.");
+        if (activeScanTask != null && activeScanTask.isRunning()) {
+            activeScanTask.cancel();
+            appendLog("cancel", "Scan cancellation requested.");
+            return;
+        }
+        if (activeAnalysisTask != null && activeAnalysisTask.isRunning()) {
+            activeAnalysisTask.cancel();
+            appendLog("cancel", "Analysis cancellation requested.");
+            return;
+        }
+        if (activeBatchCompressionTask != null && activeBatchCompressionTask.isRunning()) {
+            activeBatchCompressionTask.cancel();
+            activeBatchCompressionTask.resume();
+            appendLog("cancel", "Batch cancellation requested.");
+            return;
+        }
+        appendLog("cancel", "No active work to cancel.");
     }
 
     @FXML
@@ -387,6 +433,7 @@ public final class DashboardController {
     }
 
     private void appendLog(String scope, String message) {
+        LOGGER.info("[{}] {}", scope, message);
         if (logTextArea.getText().isBlank()) {
             logTextArea.setText("[" + scope + "] " + message);
             return;
@@ -580,17 +627,24 @@ public final class DashboardController {
         currentFileValue.textProperty().unbind();
         statusValue.setText("Batch compression complete");
         workspaceStatusValue.setText("Batch complete");
-        queueStateLabel.setText(batchCompressionResult.completedCount() + " completed, " + batchCompressionResult.skippedCount() + " skipped");
+        queueStateLabel.setText(batchCompressionResult.completedCount() + " completed, "
+                + batchCompressionResult.skippedCount() + " skipped, "
+                + batchCompressionResult.failedCount() + " failed");
         currentFileValue.setText("No active file");
         compressionSpeedValue.setText("Batch complete");
         elapsedTimeValue.setText(formatDuration(batchCompressionResult.elapsedTime()));
         remainingTimeValue.setText("00:00:00");
         estimatedSavingsValue.setText("%.0f%%".formatted(batchCompressionResult.overallSavingsRatio() * 100));
-        reportTargetsLabel.setText("Batch output ready in " + selectedOutputFolder.getFileName() + ".");
+        List<Path> reports = reportService.generate(batchCompressionResult);
+        reportTargetsLabel.setText("Reports generated: " + reports.stream()
+                .map(path -> path.getFileName().toString())
+                .collect(java.util.stream.Collectors.joining(", ")));
         queueListView.getItems().setAll(buildBatchResultRows(batchCompressionResult.results()));
         appendLog("compress", "Batch complete: " + batchCompressionResult.completedCount()
                 + " completed, " + batchCompressionResult.skippedCount()
-                + " skipped, savings " + "%.0f%%".formatted(batchCompressionResult.overallSavingsRatio() * 100) + ".");
+                + " skipped, " + batchCompressionResult.failedCount()
+                + " failed, savings " + "%.0f%%".formatted(batchCompressionResult.overallSavingsRatio() * 100) + ".");
+        appendLog("reports", "Generated " + reports.size() + " batch reports.");
         activeBatchCompressionTask = null;
         updateActionControls();
     }
@@ -648,6 +702,11 @@ public final class DashboardController {
         scanButton.setDisable(selectedInputFolder == null || busy);
         boolean compressionReady = selectedOutputFolder != null && !analyzedVideos.isEmpty() && !busy;
         compressButton.setDisable(!compressionReady);
+        boolean batchRunning = activeBatchCompressionTask != null && activeBatchCompressionTask.isRunning();
+        boolean batchPaused = batchRunning && activeBatchCompressionTask.isPaused();
+        pauseButton.setDisable(!batchRunning || batchPaused);
+        resumeButton.setDisable(!batchPaused);
+        cancelButton.setDisable(!busy);
     }
 
     private String formatSeconds(double seconds) {
@@ -669,7 +728,11 @@ public final class DashboardController {
     private List<String> buildBatchResultRows(List<CompressionResult> results) {
         return results.stream()
                 .map(result -> {
-                    String status = result.status() == CompressionStatus.SKIPPED ? "SKIPPED" : "DONE";
+                    String status = switch (result.status()) {
+                        case SKIPPED -> "SKIPPED";
+                        case FAILED -> "FAILED";
+                        case COMPLETED -> "DONE";
+                    };
                     String outputName = result.outputFile() == null ? "No output" : result.outputFile().getFileName().toString();
                     return status + "  |  " + outputName
                             + "  |  " + FileSizeFormatter.format(result.compressedSizeBytes())

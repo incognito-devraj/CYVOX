@@ -5,6 +5,7 @@ import java.time.Duration;
 
 public record CompressionResult(
         CompressionStatus status,
+        String sourceFileName,
         Path outputFile,
         long originalSizeBytes,
         long compressedSizeBytes,

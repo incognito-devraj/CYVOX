@@ -1,10 +1,13 @@
 package com.cyvox.service;
 
 import com.cyvox.exception.FfmpegException;
+import com.cyvox.model.CompressionControl;
 import com.cyvox.model.CompressionRequest;
 import com.cyvox.model.CompressionResult;
 import com.cyvox.model.CompressionStatus;
 import com.cyvox.model.VideoFile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -20,6 +23,8 @@ import java.util.Objects;
 
 public final class VideoCompressionService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(VideoCompressionService.class);
+
     private final FfmpegResolver ffmpegResolver;
 
     public VideoCompressionService(FfmpegResolver ffmpegResolver) {
@@ -27,16 +32,42 @@ public final class VideoCompressionService {
     }
 
     public CompressionResult compress(CompressionRequest request, CompressionProgressListener progressListener) throws IOException {
+        return compress(request, progressListener, new CompressionControl() {
+            @Override
+            public boolean isCancellationRequested() {
+                return false;
+            }
+
+            @Override
+            public boolean isPaused() {
+                return false;
+            }
+
+            @Override
+            public void waitIfPaused() {
+            }
+        });
+    }
+
+    public CompressionResult compress(
+            CompressionRequest request,
+            CompressionProgressListener progressListener,
+            CompressionControl compressionControl
+    ) throws IOException {
         Objects.requireNonNull(request, "request must not be null");
         Objects.requireNonNull(progressListener, "progressListener must not be null");
+        Objects.requireNonNull(compressionControl, "compressionControl must not be null");
 
         Files.createDirectories(request.outputDirectory());
         VideoFile inputFile = request.inputFile();
         Path outputFile = resolveOutputPath(request);
+        LOGGER.info("Preparing compression for {} -> {}", inputFile.path(), outputFile);
         if (Files.exists(outputFile)) {
             if (request.skipExisting()) {
+                LOGGER.info("Skipping existing output file {}", outputFile);
                 return new CompressionResult(
                         CompressionStatus.SKIPPED,
+                        inputFile.fileName(),
                         outputFile,
                         inputFile.sizeBytes(),
                         Files.size(outputFile),
@@ -51,6 +82,7 @@ public final class VideoCompressionService {
 
         List<String> command = buildCommand(request, outputFile);
         Instant start = Instant.now();
+        LOGGER.info("Starting ffmpeg for {}", inputFile.fileName());
         ProcessBuilder processBuilder = new ProcessBuilder(command);
         processBuilder.redirectErrorStream(true);
 
@@ -59,18 +91,31 @@ public final class VideoCompressionService {
             String line;
             double durationSeconds = inputFile.metadata() == null ? 0 : inputFile.metadata().durationSeconds();
             while ((line = reader.readLine()) != null) {
+                if (compressionControl.isCancellationRequested()) {
+                    destroyProcess(process);
+                    throw new InterruptedException("Compression cancelled");
+                }
+                compressionControl.waitIfPaused();
                 if (line.startsWith("out_time_ms=")) {
                     long outTimeMicro = parseLong(line.substring("out_time_ms=".length()));
-                    double progress = durationSeconds <= 0 ? -1 : Math.min(1.0, outTimeMicro / (durationSeconds * 1_000_000.0));
-                    progressListener.onProgress(progress, "Encoding " + inputFile.fileName(), outTimeMicro);
+                    if (outTimeMicro >= 0) {
+                        double progress = durationSeconds <= 0 ? -1 : Math.min(1.0, outTimeMicro / (durationSeconds * 1_000_000.0));
+                        progressListener.onProgress(progress, "Encoding " + inputFile.fileName(), outTimeMicro);
+                    }
                 } else if (line.startsWith("out_time_us=")) {
                     long outTimeMicro = parseLong(line.substring("out_time_us=".length()));
-                    double progress = durationSeconds <= 0 ? -1 : Math.min(1.0, outTimeMicro / (durationSeconds * 1_000_000.0));
-                    progressListener.onProgress(progress, "Encoding " + inputFile.fileName(), outTimeMicro);
+                    if (outTimeMicro >= 0) {
+                        double progress = durationSeconds <= 0 ? -1 : Math.min(1.0, outTimeMicro / (durationSeconds * 1_000_000.0));
+                        progressListener.onProgress(progress, "Encoding " + inputFile.fileName(), outTimeMicro);
+                    }
                 } else if (line.startsWith("progress=end")) {
                     progressListener.onProgress(1.0, "Compression complete", durationSeconds <= 0 ? 0 : (long) (durationSeconds * 1_000_000.0));
                 }
             }
+        } catch (InterruptedException exception) {
+            destroyProcess(process);
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while reading ffmpeg progress", exception);
         }
 
         try {
@@ -79,19 +124,27 @@ public final class VideoCompressionService {
                 throw new FfmpegException("ffmpeg exited with code " + exitCode + " for " + inputFile.fileName());
             }
         } catch (InterruptedException exception) {
+            destroyProcess(process);
             Thread.currentThread().interrupt();
             throw new IOException("Interrupted while waiting for ffmpeg", exception);
         }
 
         long compressedSize = Files.size(outputFile);
+        LOGGER.info("Completed compression for {}: {} -> {} bytes", inputFile.fileName(), inputFile.sizeBytes(), compressedSize);
         return new CompressionResult(
                 CompressionStatus.COMPLETED,
+                inputFile.fileName(),
                 outputFile,
                 inputFile.sizeBytes(),
                 compressedSize,
                 Duration.between(start, Instant.now()),
                 "Compression completed successfully."
         );
+    }
+
+    private void destroyProcess(Process process) {
+        process.descendants().forEach(ProcessHandle::destroyForcibly);
+        process.destroyForcibly();
     }
 
     private Path resolveOutputPath(CompressionRequest request) {
@@ -133,9 +186,13 @@ public final class VideoCompressionService {
 
     private long parseLong(String value) {
         if (value == null || value.isBlank()) {
-            return 0;
+            return -1;
         }
-        return Long.parseLong(value.trim());
+        String trimmedValue = value.trim();
+        if (!trimmedValue.chars().allMatch(Character::isDigit)) {
+            return -1;
+        }
+        return Long.parseLong(trimmedValue);
     }
 
     @FunctionalInterface

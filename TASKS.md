@@ -7,8 +7,10 @@
 - [x] FFprobe integration
 - [x] Compression engine
 - [x] Batch queue
-- [ ] Pause / Resume / Cancel
-- [ ] Reports
-- [ ] Logging
-- [ ] Package runtime
+- [x] Pause / Resume / Cancel
+- [x] Reports
+- [x] Logging
+- [x] Package runtime
 - [ ] Build CYVOX_Setup.exe
+
+Installer note: `CYVOX_Setup.exe` requires WiX Toolset (`candle.exe` and `light.exe`) on PATH. Installing WiX from this shell is blocked by Windows administrator privileges.

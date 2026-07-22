@@ -15,6 +15,10 @@ public record BatchCompressionResult(
         return results.stream().filter(result -> result.status() == CompressionStatus.SKIPPED).count();
     }
 
+    public long failedCount() {
+        return results.stream().filter(result -> result.status() == CompressionStatus.FAILED).count();
+    }
+
     public long totalOriginalSizeBytes() {
         return results.stream().mapToLong(CompressionResult::originalSizeBytes).sum();
     }
