@@ -2,7 +2,7 @@
 
 - [x] Environment setup
 - [x] Maven + JavaFX
-- [ ] UI
+- [x] UI
 - [ ] Recursive scanner
 - [ ] FFprobe integration
 - [ ] Compression engine
